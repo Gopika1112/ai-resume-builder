@@ -3,6 +3,7 @@ import { PDFParse } from 'pdf-parse';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 export async function POST(req: Request) {
     try {
@@ -18,9 +19,13 @@ export async function POST(req: Request) {
         // Use standard fonts and cmaps for better extraction of non-embedded fonts in browser-printed PDFs
         const pdfjsDistPath = path.dirname(require.resolve('pdfjs-dist/package.json'));
 
-        // Normalize paths to use forward slashes even on Windows, as pdfjs-dist treats them as URLs/Factories
-        const fontPath = path.join(pdfjsDistPath, 'standard_fonts').replace(/\\/g, '/') + '/';
-        const cMapPath = path.join(pdfjsDistPath, 'cmaps').replace(/\\/g, '/') + '/';
+        // Use file:// URLs for absolute paths on Windows to satisfy pdfjs-dist requirements
+        let fontPath = pathToFileURL(path.join(pdfjsDistPath, 'standard_fonts', path.sep)).href;
+        let cMapPath = pathToFileURL(path.join(pdfjsDistPath, 'cmaps', path.sep)).href;
+
+        // Ensure trailing slash for pdfjs-dist factory URL requirement
+        if (!fontPath.endsWith('/')) fontPath += '/';
+        if (!cMapPath.endsWith('/')) cMapPath += '/';
 
         const pdfParser = new PDFParse({
             data: new Uint8Array(arrayBuffer),
