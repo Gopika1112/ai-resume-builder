@@ -18,19 +18,18 @@ export function PrintButton() {
 
         setIsGenerating(true);
         try {
-            console.log("Generating high-fidelity PDF...");
+            console.log("Generating Sanitized PDF...");
 
             // 1. Initialize jsPDF
-            // Using points (pt) for better HTML mapping
             const pdf = new jsPDF({
                 orientation: "portrait",
                 unit: "pt",
                 format: "a4",
             });
 
-            const pdfWidth = 595.28; // A4 width in pt
+            const pdfWidth = 595.28; // Standard A4 width in pt
 
-            // 2. Use the NATIVE .html() method for real text selectability
+            // 2. Use Native .html() with a Style Sanitizer
             await pdf.html(element, {
                 callback: function (doc) {
                     doc.save("AutoResume.pdf");
@@ -39,19 +38,36 @@ export function PrintButton() {
                 x: 0,
                 y: 0,
                 width: pdfWidth,
-                windowWidth: 800, // Match the typical resume container width
+                windowWidth: 800,
                 autoPaging: 'text',
                 html2canvas: {
-                    scale: 0.75, // Scale down to fit A4
+                    scale: 1,
                     useCORS: true,
                     logging: false,
                     backgroundColor: "#ffffff",
+                    onclone: (clonedDoc) => {
+                        // FIX: Iterate through elements and strip 'lab(' or 'oklch(' color functions
+                        // html2canvas parser crashes on these modern CSS values.
+                        const elements = clonedDoc.getElementsByTagName('*');
+                        for (let i = 0; i < elements.length; i++) {
+                            const el = elements[i] as HTMLElement;
+                            if (el.style) {
+                                const styles = ['color', 'backgroundColor', 'borderColor', 'fill', 'stroke'];
+                                styles.forEach(prop => {
+                                    const val = (el.style as any)[prop];
+                                    if (typeof val === 'string' && (val.includes('lab(') || val.includes('oklch('))) {
+                                        (el.style as any)[prop] = '#000000'; // Baseline fallback
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
             });
 
         } catch (error) {
-            console.error("PDF GENERATION ERROR:", error);
-            if (confirm("Advanced 'Save' failed due to browser limitations. Use standard Print instead?")) {
+            console.error("PDF GENERATION FAILED:", error);
+            if (confirm("Direct 'Save' failed due to a style incompatibility. Use browser print instead?")) {
                 window.print();
             }
         } finally {
