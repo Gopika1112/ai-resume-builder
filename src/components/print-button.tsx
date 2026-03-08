@@ -17,16 +17,23 @@ export function PrintButton() {
 
         setIsGenerating(true);
         try {
-            // Use html2canvas to capture the element as an image first for layout fidelity
-            // But we will also attempt to add text layers or use a better PDF approach if hit 0 score again
-            // For now, let's use the most reliable visual capture first, then refine for text
+            console.log("Starting PDF generation for:", element);
+            const { width, height } = element.getBoundingClientRect();
+            if (width === 0 || height === 0) {
+                throw new Error("Resume container has no visible dimensions. Is it hidden?");
+            }
+
             const canvas = await html2canvas(element, {
-                scale: 2, // High resolution
+                scale: 1.5, // Reduced from 2 for better stability
                 useCORS: true,
-                logging: false,
+                logging: true,
                 backgroundColor: "#ffffff",
+            }).catch(err => {
+                console.error("html2canvas capture failed:", err);
+                throw new Error(`Visual capture failed: ${err.message || 'Unknown error'}`);
             });
 
+            console.log("Canvas captured.");
             const imgData = canvas.toDataURL("image/jpeg", 1.0);
             const pdf = new jsPDF({
                 orientation: "portrait",
@@ -38,39 +45,42 @@ export function PrintButton() {
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-            // 1. Add the visual image
+            // 1. Add visual image
             pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
 
-            // 2. Add an invisible text layer for ATS and copying
-            // We iterate through all text nodes in the element to place them in the PDF
-            const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
-            let node;
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFontSize(1); // Tiny font size for the "invisible" layer
+            // 2. Add text layer
+            try {
+                const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+                let node;
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFontSize(1);
+                const containerRect = element.getBoundingClientRect();
 
-            while (node = walk.nextNode()) {
-                if (node.parentElement) {
-                    const rect = node.parentElement.getBoundingClientRect();
-                    const containerRect = element.getBoundingClientRect();
-
-                    // Calculate relative position
-                    const x = ((rect.left - containerRect.left) / containerRect.width) * pdfWidth;
-                    const y = ((rect.top - containerRect.top) / containerRect.height) * pdfHeight;
-
+                while (node = walk.nextNode()) {
                     const text = node.textContent?.trim();
-                    if (text) {
-                        // Place text exactly where it is on screen, but make it nearly invisible (white or transparent)
-                        // Actually, many ATS systems prefer "real" text. Let's place it in black but very small.
-                        // For a better "copy-paste" experience, we'll try to match the approximate line.
-                        pdf.text(text, x, y, { renderingMode: "invisible" });
+                    if (text && node.parentElement) {
+                        const rect = node.parentElement.getBoundingClientRect();
+
+                        // Relative positions
+                        const x = ((rect.left - containerRect.left) / containerRect.width) * pdfWidth;
+                        const y = ((rect.top - containerRect.top) / containerRect.height) * pdfHeight;
+
+                        if (!isNaN(x) && !isNaN(y)) {
+                            // Using string 'invisible' as required by types
+                            pdf.text(text, x, y, { renderingMode: "invisible" });
+                        }
                     }
                 }
+                console.log("Text layer added.");
+            } catch (layerErr) {
+                console.warn("Failed to add text layer, preserving visual only:", layerErr);
             }
 
             pdf.save("resume.pdf");
+            console.log("PDF saved successfully.");
         } catch (error) {
-            console.error("PDF Generation Error:", error);
-            alert("Failed to generate PDF. Please use Ctrl+P as a backup.");
+            console.error("CRITICAL PDF ERROR:", error);
+            alert(`Failed to generate PDF: ${error instanceof Error ? error.message : "Internal Error"}`);
         } finally {
             setIsGenerating(false);
         }
