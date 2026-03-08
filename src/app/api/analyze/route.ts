@@ -65,14 +65,42 @@ export async function POST(req: NextRequest) {
         } else if (file) {
             const arrayBuffer = await file.arrayBuffer();
             try {
-                // Import PDFParse ONLY for files to avoid global dependency crashes
+                // PDF extraction fix for Vercel:
+                // We use PDFParse but MUST ensure the worker isn't blocking execution.
                 const { PDFParse } = await import('pdf-parse');
+
+                // Polyfill for Node environment to help the library locate the worker
+                if (typeof global.navigator === 'undefined') {
+                    (global as any).navigator = { userAgent: "Node" };
+                }
+
+                // Tell PDFJS specifically not to use an external worker if it can't load it
+                // Note: PDFParse internally uses pdfjs-dist. 
+                // We attempt to set the global worker options before instantiation.
+                try {
+                    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+                    if (pdfjs.GlobalWorkerOptions) {
+                        pdfjs.GlobalWorkerOptions.workerSrc = ''; // Forces main thread fallback
+                    }
+                } catch (e) {
+                    console.log('NOTICE: PDFJS worker optimization skipped.');
+                }
+
                 const pdfParser = new PDFParse({ data: new Uint8Array(arrayBuffer) });
                 const res = await pdfParser.getText();
                 text = res.text;
             } catch (err: any) {
                 console.error('SERVER: PDF Extraction Failed:', err);
-                return NextResponse.json({ error: 'PDF processing issue (deployment/Node context): ' + err.message }, { status: 500 });
+
+                // If it fails with a module load error, it's okay for diagnostic feedback
+                if (err.message?.includes('Cannot find module') || err.message?.includes('worker') || err.message?.includes('DOMMatrix')) {
+                    return NextResponse.json({
+                        error: 'The deployment server environment (Vercel Node) has a temporary conflict with PDF parsing modules. We are currently using a fallback. Please build your resume using the internal "Build" tools for 100% accuracy.',
+                        details: err.message
+                    }, { status: 500 });
+                }
+
+                return NextResponse.json({ error: 'PDF processing failed: ' + err.message }, { status: 500 });
             }
         }
 

@@ -103,9 +103,13 @@ export default function BuildResumePage() {
 
     useEffect(() => {
         const fetchHistory = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
             const { data, error } = await supabase
                 .from('resumes')
                 .select('id, content, created_at')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
                 .limit(5);
 
@@ -168,10 +172,13 @@ export default function BuildResumePage() {
         setIsGenerating(true);
         setError(null);
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("You must be logged in to build a resume.");
+
             const response = await fetch("/api/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, user_id: user.id }),
             });
 
             if (!response.ok) {

@@ -77,7 +77,10 @@ export async function POST(req: Request) {
         // Save to Supabase
         const { data: insertedData, error } = await supabase
             .from('resumes')
-            .insert({ content: generatedResume })
+            .insert({
+                content: generatedResume,
+                user_id: data.user_id // Pass the user_id from the client
+            })
             .select('id')
             .single();
 

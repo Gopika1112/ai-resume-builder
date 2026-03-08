@@ -25,9 +25,13 @@ export default function ScorePage() {
 
     useEffect(() => {
         const fetchResumes = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
             const { data, error } = await supabase
                 .from('resumes')
                 .select('id, content, created_at')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
                 .limit(10);
 
