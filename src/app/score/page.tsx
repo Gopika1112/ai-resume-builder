@@ -91,7 +91,7 @@ export default function ScorePage() {
         }
 
         try {
-            const response = await fetch("/api/tester", {
+            const response = await fetch("/api/resume-analyzer", {
                 method: "POST",
                 body: formData,
             });
