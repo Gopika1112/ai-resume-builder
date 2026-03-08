@@ -18,7 +18,7 @@ export function PrintButton() {
 
         setIsGenerating(true);
         try {
-            console.log("Generating Sanitized PDF...");
+            console.log("Generating Sanitized PDF (Take 2)...");
 
             // 1. Initialize jsPDF
             const pdf = new jsPDF({
@@ -29,11 +29,11 @@ export function PrintButton() {
 
             const pdfWidth = 595.28; // Standard A4 width in pt
 
-            // 2. Use Native .html() with a Style Sanitizer
+            // 2. Use Native .html() with a Style Sanitizer in onclone
             await pdf.html(element, {
                 callback: function (doc) {
                     doc.save("AutoResume.pdf");
-                    console.log("PDF Saved.");
+                    console.log("PDF Saved successfully.");
                 },
                 x: 0,
                 y: 0,
@@ -46,18 +46,20 @@ export function PrintButton() {
                     logging: false,
                     backgroundColor: "#ffffff",
                     onclone: (clonedDoc) => {
-                        // FIX: Iterate through elements and strip 'lab(' or 'oklch(' color functions
-                        // html2canvas parser crashes on these modern CSS values.
+                        // CRITICAL FIX: Aggressively strip unsupported color functions
                         const elements = clonedDoc.getElementsByTagName('*');
                         for (let i = 0; i < elements.length; i++) {
                             const el = elements[i] as HTMLElement;
                             if (el.style) {
-                                const styles = ['color', 'backgroundColor', 'borderColor', 'fill', 'stroke'];
-                                styles.forEach(prop => {
-                                    const val = (el.style as any)[prop];
-                                    if (typeof val === 'string' && (val.includes('lab(') || val.includes('oklch('))) {
-                                        (el.style as any)[prop] = '#000000'; // Baseline fallback
-                                    }
+                                // List of color-related properties to sanitize
+                                const props = ['color', 'backgroundColor', 'borderColor', 'fill', 'stroke', 'outlineColor'];
+                                props.forEach(prop => {
+                                    try {
+                                        const val = (el.style as any)[prop];
+                                        if (typeof val === 'string' && (val.includes('lab(') || val.includes('oklch('))) {
+                                            (el.style as any)[prop] = '#000000'; // Default to black for safety
+                                        }
+                                    } catch (e) { /* ignore access errors */ }
                                 });
                             }
                         }
@@ -67,7 +69,7 @@ export function PrintButton() {
 
         } catch (error) {
             console.error("PDF GENERATION FAILED:", error);
-            if (confirm("Direct 'Save' failed due to a style incompatibility. Use browser print instead?")) {
+            if (confirm("Advanced 'Save' failed due to a style incompatibility. Use browser print instead?")) {
                 window.print();
             }
         } finally {
