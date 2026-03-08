@@ -76,11 +76,32 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Insufficient text extracted for analysis.' }, { status: 400 });
         }
 
-        const ai = createOpenAI({ apiKey });
+        const isOpenRouter = apiKey.startsWith('sk-or-');
+        const ai = createOpenAI({
+            baseURL: isOpenRouter ? 'https://openrouter.ai/api/v1' : 'https://api.groq.com/openai/v1',
+            apiKey: apiKey,
+        });
+
+        const modelName = isOpenRouter ? 'meta-llama/llama-3.3-70b-instruct' : 'llama-3.3-70b-versatile';
+
         const { text: result } = await generateText({
-            model: ai('llama-3.3-70b-versatile'),
-            system: 'Analyze the resume and return valid JSON { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }',
-            prompt: `Evaluate this resume:\n\n${text.substring(0, 12000)}`
+            model: ai(modelName),
+            system: `You are a high-level ATS (Applicant Tracking System) Evaluation Intelligence.
+            Analyze the resume text and provide a rigorous, professional assessment.
+            
+            SCORING CRITERIA (0-100 scale):
+            1. atsScore: Overall professional quality, formatting clarity, and structural integrity.
+            2. keywordMatch: Presence of industry-standard technical and soft skills.
+            3. impactAndMetrics: Presence of quantifiable achievements (%, $, numbers) and action verbs.
+            
+            LOGIC RULES:
+            - If no quantifiable metrics are found, max impact score is 40.
+            - If structure is poor/unorganized, max atsScore is 50.
+            - Provide 3-5 specific, actionable feedback points.
+            
+            OUTPUT: Return ONLY a valid JSON object:
+            { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }`,
+            prompt: `Evaluate this resume based on industry standards:\n\n${text.substring(0, 15000)}`
         });
 
         let jsonStr = result.trim();
