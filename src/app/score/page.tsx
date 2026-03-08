@@ -91,7 +91,7 @@ export default function ScorePage() {
         }
 
         try {
-            const response = await fetch("/api/score", {
+            const response = await fetch("/api/analyze", {
                 method: "POST",
                 body: formData,
             });
@@ -99,13 +99,13 @@ export default function ScorePage() {
             const responseText = await response.text();
 
             if (!response.ok) {
-                let errorMsg = "Failed to analyze resume";
+                let errorMsg = `Server Error (${response.status})`;
                 try {
                     const data = JSON.parse(responseText);
                     errorMsg = data.error || errorMsg;
                     if (data.details) errorMsg += ` (${data.details})`;
                 } catch (e) {
-                    errorMsg = `Server error (${response.status}): ${responseText || response.statusText || 'External service failure'}`;
+                    errorMsg = `Server error (${response.status}): ${responseText.substring(0, 100) || response.statusText || 'External service failure'}`;
                 }
                 throw new Error(errorMsg);
             }

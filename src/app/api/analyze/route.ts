@@ -1,10 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { PDFParse } from 'pdf-parse';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { supabase } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 function resumeToText(content: any): string {
     let text = `Name: ${content.personalInfo?.fullName || ''}\n`;
