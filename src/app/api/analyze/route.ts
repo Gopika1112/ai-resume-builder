@@ -7,6 +7,18 @@ import { supabase } from '@/lib/supabase';
 // Force dynamic to avoid Vercel caching issues
 export const dynamic = 'force-dynamic';
 
+export async function GET() {
+    return NextResponse.json({
+        status: "Online",
+        message: "Resume Analyzer API is ready.",
+        diagnostics: {
+            time: new Date().toISOString(),
+            has_groq: !!process.env.GROQ_API_KEY,
+            has_supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL
+        }
+    });
+}
+
 function resumeToText(content: any): string {
     let text = `Name: ${content.personalInfo?.fullName || ''}\n`;
     text += `Summary: ${content.summary || ''}\n\n`;
