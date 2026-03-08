@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
                     data: new Uint8Array(arrayBuffer),
                     disableWorker: true,
                     verbosity: 0
-                });
+                } as any);
 
                 const pdf = await loadingTask.promise;
                 let fullText = "";
@@ -92,16 +92,39 @@ export async function POST(req: NextRequest) {
         const { text: result } = await generateText({
             model: ai('llama-3.3-70b-versatile'),
             system: `You are a high-level ATS (Applicant Tracking System) Evaluation Intelligence.
-            Analyze the resume and return valid JSON { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }.
-            Weighted Scoring: Penalize lack of quantifiable metrics (%, $, numbers) and poor formatting.`,
-            prompt: `Evaluate this resume:\n\n${text.substring(0, 15000)}`
+            Assess the resume rigorously with logical scoring matches on a strict 0 to 100 scale.
+            
+            SCORING RUBRIC (MUST BE AN INTEGER BETWEEN 0 AND 100, e.g., 85, NOT 8.5 or 8):
+            1. atsScore: Overall professional quality. Score reflects structure and clarity. (0-100)
+            2. keywordMatch: Professional skills and industrial terminology density. (0-100)
+            3. impactAndMetrics: Presence of quantifiable achievements (%, $, numbers, user counts). (0-100)
+            
+            PENALTY RULES:
+            - NO METRICS FOUND: If the resume lacks %, $, or numeric achievements, cap 'impactAndMetrics' at 40 and total 'atsScore' at 65.
+            - POOR STRUCTURE: If text is unorganized or missing clear sections (Experience, Skills, Education), cap total 'atsScore' at 50.
+            - SHORT CONTENT: If total resume text is under 300 words, cap total 'atsScore' at 60.
+            
+            OUTPUT: Valid JSON ONLY. Do not wrap in markdown tags or include any other text:
+            { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": ["string", "string"] }`,
+            prompt: `Evaluate this resume based on executive standards. Return ONLY the JSON object.\n\n${text.substring(0, 15000)}`
         });
 
         let jsonStr = result.trim();
         const match = jsonStr.match(/\{[\s\S]*\}/);
         if (match) jsonStr = match[0];
 
-        return NextResponse.json(JSON.parse(jsonStr));
+        try {
+            const parsed = JSON.parse(jsonStr);
+            // Safeguard: Fallback for models mistakenly using a 0-10 scale
+            if (parsed.atsScore > 0 && parsed.atsScore <= 10) parsed.atsScore *= 10;
+            if (parsed.keywordMatch > 0 && parsed.keywordMatch <= 10) parsed.keywordMatch *= 10;
+            if (parsed.impactAndMetrics > 0 && parsed.impactAndMetrics <= 10) parsed.impactAndMetrics *= 10;
+
+            return NextResponse.json(parsed);
+        } catch (e: any) {
+            console.error('JSON Parse Error:', jsonStr);
+            return NextResponse.json({ error: 'Failed to parse AI response.' }, { status: 500 });
+        }
 
     } catch (error: any) {
         console.error('FINAL POST ERROR:', error);
