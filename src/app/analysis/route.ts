@@ -24,6 +24,18 @@ function resumeToText(content: any): string {
     return text;
 }
 
+export async function GET() {
+    return NextResponse.json({
+        status: "Online",
+        route: "/analysis",
+        diagnostics: {
+            has_groq_key: !!process.env.GROQ_API_KEY,
+            has_supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+            node_version: process.version
+        }
+    });
+}
+
 export async function POST(req: Request) {
     try {
         const apiKey = process.env.GROQ_API_KEY;
