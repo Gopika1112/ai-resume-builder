@@ -22,7 +22,7 @@ function resumeToText(content: any): string {
 }
 
 export async function GET() {
-    return NextResponse.json({ status: "Online" });
+    return NextResponse.json({ status: "Online", engine: "pdfjs-direct" });
 }
 
 export async function POST(req: NextRequest) {
@@ -46,20 +46,39 @@ export async function POST(req: NextRequest) {
             text = resumeToText(data.content);
         } else if (file) {
             const arrayBuffer = await file.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
             try {
-                // Use standard require-style dynamic import for pdf-parse 1.1.1
-                const pdf = (await import('pdf-parse')).default;
-                const data = await pdf(buffer);
-                text = data.text;
+                // Using pdfjs-dist directly with worker disabled for serverless stability
+                const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+
+                // Set workerSrc to empty to avoid module load attempts
+                if (pdfjs.GlobalWorkerOptions) {
+                    pdfjs.GlobalWorkerOptions.workerSrc = '';
+                }
+
+                const loadingTask = pdfjs.getDocument({
+                    data: new Uint8Array(arrayBuffer),
+                    disableWorker: true,
+                    verbosity: 0
+                });
+
+                const pdf = await loadingTask.promise;
+                let fullText = "";
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    const strings = content.items.map((item: any) => item.str);
+                    fullText += strings.join(" ") + "\n";
+                }
+                text = fullText;
             } catch (err: any) {
-                console.error('SERVER: PDF Extraction Failed:', err);
+                console.error('SERVER: PDFJS Extraction Failed:', err);
                 return NextResponse.json({ error: 'PDF parsing error: ' + err.message }, { status: 500 });
             }
         }
 
         if (!text || text.trim().length < 50) {
-            return NextResponse.json({ error: 'Insufficient text extracted.' }, { status: 400 });
+            return NextResponse.json({ error: 'Insufficient text extracted from PDF.' }, { status: 400 });
         }
 
         const { createOpenAI } = await import('@ai-sdk/openai');
@@ -72,8 +91,10 @@ export async function POST(req: NextRequest) {
 
         const { text: result } = await generateText({
             model: ai('llama-3.3-70b-versatile'),
-            system: `Analyze the resume and return valid JSON { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }. Penalize lack of metrics.`,
-            prompt: `Resume Content:\n${text.substring(0, 15000)}`
+            system: `You are a high-level ATS (Applicant Tracking System) Evaluation Intelligence.
+            Analyze the resume and return valid JSON { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }.
+            Weighted Scoring: Penalize lack of quantifiable metrics (%, $, numbers) and poor formatting.`,
+            prompt: `Evaluate this resume:\n\n${text.substring(0, 15000)}`
         });
 
         let jsonStr = result.trim();
@@ -83,6 +104,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(JSON.parse(jsonStr));
 
     } catch (error: any) {
+        console.error('FINAL POST ERROR:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
