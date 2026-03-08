@@ -38,4 +38,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+# antigravity scratch
+ats_debug.json
+test-api.js
 next-env.d.ts

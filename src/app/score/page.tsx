@@ -96,14 +96,29 @@ export default function ScorePage() {
                 body: formData,
             });
 
+            const responseText = await response.text();
+
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || "Failed to analyze resume");
+                let errorMsg = "Failed to analyze resume";
+                try {
+                    const data = JSON.parse(responseText);
+                    errorMsg = data.error || errorMsg;
+                    if (data.details) errorMsg += ` (${data.details})`;
+                } catch (e) {
+                    errorMsg = `Server error (${response.status}): ${responseText || response.statusText || 'External service failure'}`;
+                }
+                throw new Error(errorMsg);
             }
 
-            const data = await response.json();
-            setResult(data);
+            try {
+                const data = JSON.parse(responseText);
+                setResult(data);
+            } catch (e) {
+                console.error("Malformed JSON response:", responseText);
+                throw new Error("The server returned an invalid response format. Please try again.");
+            }
         } catch (err: any) {
+            console.error("Analysis error:", err);
             setError(err.message || "An unexpected error occurred. Please try again.");
         } finally {
             setIsUploading(false);
