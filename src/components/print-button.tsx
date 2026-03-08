@@ -1,9 +1,5 @@
 "use client";
 
-import { Download } from "lucide-react";
-
-"use client";
-
 import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
 import jsPDF from "jspdf";
