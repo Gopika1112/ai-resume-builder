@@ -17,10 +17,15 @@ export async function POST(req: Request) {
 
         // Use standard fonts and cmaps for better extraction of non-embedded fonts in browser-printed PDFs
         const pdfjsDistPath = path.dirname(require.resolve('pdfjs-dist/package.json'));
+
+        // Normalize paths to use forward slashes even on Windows, as pdfjs-dist treats them as URLs/Factories
+        const fontPath = path.join(pdfjsDistPath, 'standard_fonts').replace(/\\/g, '/') + '/';
+        const cMapPath = path.join(pdfjsDistPath, 'cmaps').replace(/\\/g, '/') + '/';
+
         const pdfParser = new PDFParse({
             data: new Uint8Array(arrayBuffer),
-            standardFontDataUrl: path.join(pdfjsDistPath, 'standard_fonts', path.sep),
-            cMapUrl: path.join(pdfjsDistPath, 'cmaps', path.sep),
+            standardFontDataUrl: fontPath,
+            cMapUrl: cMapPath,
             cMapPacked: true
         });
         let textResult;
