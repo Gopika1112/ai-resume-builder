@@ -11,48 +11,48 @@ export function PrintButton() {
     const handleDownload = async () => {
         const element = document.getElementById("resume-print-container");
         if (!element) {
-            alert("Resume container not found. Please try again.");
+            alert("Resume container not found. Contact support.");
             return;
         }
 
         setIsGenerating(true);
         try {
-            console.log("Starting PDF generation for:", element);
-            const { width, height } = element.getBoundingClientRect();
-            if (width === 0 || height === 0) {
-                throw new Error("Resume container has no visible dimensions. Is it hidden?");
-            }
+            console.log("Saving PDF... container check:", element.offsetWidth, "x", element.offsetHeight);
+
+            // Re-render element to ensure it's not hidden
+            element.style.display = 'block';
 
             const canvas = await html2canvas(element, {
-                scale: 1.5, // Reduced from 2 for better stability
+                scale: 1.5,
                 useCORS: true,
                 logging: true,
                 backgroundColor: "#ffffff",
+                scrollX: -window.scrollX,
+                scrollY: -window.scrollY,
+                windowWidth: element.scrollWidth,
+                windowHeight: element.scrollHeight,
             }).catch(err => {
-                console.error("html2canvas capture failed:", err);
-                throw new Error(`Visual capture failed: ${err.message || 'Unknown error'}`);
+                console.error("Visual capture error:", err);
+                throw new Error(`Visual capture failed: ${err.message || 'Check browser permissions'}`);
             });
 
-            console.log("Canvas captured.");
-            const imgData = canvas.toDataURL("image/jpeg", 1.0);
+            const imgData = canvas.toDataURL("image/jpeg", 0.95);
             const pdf = new jsPDF({
                 orientation: "portrait",
                 unit: "mm",
                 format: "a4",
             });
 
-            const imgProps = pdf.getImageProperties(imgData);
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-            // 1. Add visual image
+            // 1. Visual Layer
             pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
 
-            // 2. Add text layer
+            // 2. Text Layer (Hidden but copyable)
             try {
                 const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
                 let node;
-                pdf.setTextColor(0, 0, 0);
                 pdf.setFontSize(1);
                 const containerRect = element.getBoundingClientRect();
 
@@ -61,26 +61,23 @@ export function PrintButton() {
                     if (text && node.parentElement) {
                         const rect = node.parentElement.getBoundingClientRect();
 
-                        // Relative positions
+                        // Scale factors
                         const x = ((rect.left - containerRect.left) / containerRect.width) * pdfWidth;
                         const y = ((rect.top - containerRect.top) / containerRect.height) * pdfHeight;
 
                         if (!isNaN(x) && !isNaN(y)) {
-                            // Using string 'invisible' as required by types
                             pdf.text(text, x, y, { renderingMode: "invisible" });
                         }
                     }
                 }
-                console.log("Text layer added.");
             } catch (layerErr) {
-                console.warn("Failed to add text layer, preserving visual only:", layerErr);
+                console.warn("Text layer skipped:", layerErr);
             }
 
-            pdf.save("resume.pdf");
-            console.log("PDF saved successfully.");
+            pdf.save("AutoResume.pdf");
         } catch (error) {
-            console.error("CRITICAL PDF ERROR:", error);
-            alert(`Failed to generate PDF: ${error instanceof Error ? error.message : "Internal Error"}`);
+            console.error("SAVE ERROR:", error);
+            alert(`Save Failed: ${error instanceof Error ? error.message : "Internal Engine Error"}`);
         } finally {
             setIsGenerating(false);
         }
@@ -99,7 +96,7 @@ export function PrintButton() {
                 <Download size={18} className="relative z-10" />
             )}
             <span className="hidden sm:inline relative z-10">
-                {isGenerating ? "Exporting..." : "Export PDF"}
+                {isGenerating ? "Saving..." : "Save PDF"}
             </span>
         </button>
     );
