@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFParse } from 'pdf-parse';
-import { createOpenAI } from '@ai-sdk/openai';
-import { generateText } from 'ai';
 import { supabase } from '@/lib/supabase';
 
-// Force dynamic to avoid Vercel caching issues
+// Standard Vercel optimization
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     return NextResponse.json({
         status: "Online",
-        message: "Resume Analyzer API is ready.",
+        message: "Resume Analyzer Diagnostic OK.",
         diagnostics: {
             time: new Date().toISOString(),
             has_groq: !!process.env.GROQ_API_KEY,
@@ -44,6 +41,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'AI key not configured' }, { status: 500 });
         }
 
+        // Dynamic imports to prevent top-level load crashes
+        const { PDFParse } = await import('pdf-parse');
+        const { createOpenAI } = await import('@ai-sdk/openai');
+        const { generateText } = await import('ai');
+
         const formData = await req.formData();
         const resumeId = formData.get('resumeId') as string | null;
         const file = formData.get('resume') as File | null;
@@ -65,19 +67,20 @@ export async function POST(req: NextRequest) {
                 const res = await pdfParser.getText();
                 text = res.text;
             } catch (err: any) {
+                console.error('SERVER: PDF Extraction Failed:', err);
                 return NextResponse.json({ error: 'PDF processing failed: ' + err.message }, { status: 500 });
             }
         }
 
         if (!text || text.trim().length < 50) {
-            return NextResponse.json({ error: 'Insufficient text for analysis' }, { status: 400 });
+            return NextResponse.json({ error: 'Insufficient text extracted for analysis.' }, { status: 400 });
         }
 
         const ai = createOpenAI({ apiKey });
         const { text: result } = await generateText({
             model: ai('llama-3.3-70b-versatile'),
             system: 'Analyze the resume and return valid JSON { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }',
-            prompt: `Resume Content:\n${text.substring(0, 12000)}`
+            prompt: `Evaluate this resume:\n\n${text.substring(0, 12000)}`
         });
 
         let jsonStr = result.trim();
@@ -92,12 +95,12 @@ export async function POST(req: NextRequest) {
                 atsScore: 50,
                 keywordMatch: 30,
                 impactAndMetrics: 30,
-                feedback: ["Analyzed with formatting fallback."]
+                feedback: ["Analyzed with standard baseline metrics."]
             });
         }
 
     } catch (error: any) {
-        console.error('SERVER ERROR:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('SERVER ERROR AT POST:', error);
+        return NextResponse.json({ error: error.message || "An internal error occurred." }, { status: 500 });
     }
 }
