@@ -3,7 +3,7 @@
 import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 
 export function PrintButton() {
     const [isGenerating, setIsGenerating] = useState(false);
