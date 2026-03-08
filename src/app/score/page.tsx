@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, ChevronRight, CheckCircle2, AlertCircle, BarChart, ArrowLeft, Target, Award, Terminal } from "lucide-react";
+import { Upload, FileText, ChevronRight, CheckCircle2, AlertCircle, BarChart, ArrowLeft, Target, Award, Terminal, Database } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface ScoreResult {
     atsScore: number;
@@ -14,11 +15,28 @@ interface ScoreResult {
 
 export default function ScorePage() {
     const [file, setFile] = useState<File | null>(null);
+    const [savedResumes, setSavedResumes] = useState<any[]>([]);
+    const [selectedResumeId, setSelectedResumeId] = useState<string>("");
     const [isDragging, setIsDragging] = useState(false);
-    const [isUplaoding, setIsUploading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<ScoreResult | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const fetchResumes = async () => {
+            const { data, error } = await supabase
+                .from('resumes')
+                .select('id, content, created_at')
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (!error && data) {
+                setSavedResumes(data);
+            }
+        };
+        fetchResumes();
+    }, []);
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -38,6 +56,7 @@ export default function ScorePage() {
             const droppedFile = e.dataTransfer.files[0];
             if (droppedFile.type === "application/pdf") {
                 setFile(droppedFile);
+                setSelectedResumeId("");
                 setError(null);
             } else {
                 setError("Please upload a valid PDF file.");
@@ -50,6 +69,7 @@ export default function ScorePage() {
             const selectedFile = e.target.files[0];
             if (selectedFile.type === "application/pdf") {
                 setFile(selectedFile);
+                setSelectedResumeId("");
                 setError(null);
             } else {
                 setError("Please upload a valid PDF file.");
@@ -58,13 +78,17 @@ export default function ScorePage() {
     };
 
     const handleSubmit = async () => {
-        if (!file) return;
+        if (!file && !selectedResumeId) return;
 
         setIsUploading(true);
         setError(null);
 
         const formData = new FormData();
-        formData.append("resume", file);
+        if (selectedResumeId) {
+            formData.append("resumeId", selectedResumeId);
+        } else if (file) {
+            formData.append("resume", file);
+        }
 
         try {
             const response = await fetch("/api/score", {
@@ -112,7 +136,7 @@ export default function ScorePage() {
                         ATS <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-500">Score Analyzer</span>
                     </h1>
                     <p className="text-muted-foreground font-mono max-w-2xl mx-auto">
-                        Upload your existing PDF resume to see how it performs against legacy Applicant Tracking Systems (ATS).
+                        Evaluate your resume for ATS compatibility. Upload a PDF or select a resume you've built here for 100% accurate internal analysis.
                     </p>
                 </div>
 
@@ -160,10 +184,10 @@ export default function ScorePage() {
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleSubmit(); }}
-                                                disabled={isUplaoding}
+                                                disabled={isUploading}
                                                 className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded text-sm font-bold font-mono uppercase tracking-wider transition-all hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] disabled:opacity-50 flex items-center"
                                             >
-                                                {isUplaoding ? (
+                                                {isUploading ? (
                                                     <>
                                                         <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
                                                         Analyzing...
@@ -176,18 +200,80 @@ export default function ScorePage() {
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center pointer-events-none">
-                                        <div className={`h-20 w-20 rounded-full flex items-center justify-center mb-6 transition-colors duration-300
+                                        <div className={`h-24 w-24 rounded-full flex items-center justify-center mb-6 transition-colors duration-300
                       ${isDragging ? 'bg-cyan-500/20 text-cyan-400' : 'bg-secondary text-muted-foreground group-hover:text-white'}
                     `}>
-                                            <Upload size={36} />
+                                            <Upload size={40} />
                                         </div>
-                                        <h3 className="text-xl font-bold text-white mb-2 font-mono uppercase tracking-wider">Upload Resume</h3>
+                                        <h3 className="text-xl font-bold text-white mb-2 font-mono uppercase tracking-wider">Upload External PDF</h3>
                                         <p className="text-muted-foreground mb-6 font-mono text-sm max-w-sm">
-                                            Drag and drop your PDF file here, or click to browse files.
+                                            Best for resumes NOT built on AutoResume.
                                         </p>
-                                        <div className="px-6 py-3 border border-border bg-background rounded text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground group-hover:text-white group-hover:border-cyan-500/50 transition-all pointer-events-auto">
+                                        <div className="px-6 py-3 border border-border bg-background rounded text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground group-hover:text-white group-hover:border-cyan-500/50 transition-all pointer-events-auto cursor-pointer">
                                             Select File
                                         </div>
+                                    </div>
+                                )}
+
+                                {/* Saved Resumes Selection */}
+                                {savedResumes.length > 0 && !file && (
+                                    <div className="mt-10 pt-10 border-t border-border/30 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex items-center justify-center mb-6">
+                                            <div className="h-px bg-border/30 w-full"></div>
+                                            <span className="px-4 text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-[0.2em] whitespace-nowrap">OR SELECT FROM SAVED</span>
+                                            <div className="h-px bg-border/30 w-full"></div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                            {savedResumes.map((resume) => (
+                                                <button
+                                                    key={resume.id}
+                                                    onClick={() => {
+                                                        setSelectedResumeId(resume.id);
+                                                        setFile(null);
+                                                        setError(null);
+                                                    }}
+                                                    className={`flex items-center p-4 rounded border transition-all text-left group
+                                                        ${selectedResumeId === resume.id
+                                                            ? 'border-cyan-500 bg-cyan-500/10'
+                                                            : 'border-border/30 hover:border-cyan-500/30 hover:bg-card/50'}
+                                                    `}
+                                                >
+                                                    <div className={`p-2 rounded-full mr-4 transition-colors
+                                                        ${selectedResumeId === resume.id ? 'bg-cyan-500/20 text-cyan-400' : 'bg-secondary text-muted-foreground group-hover:text-white'}
+                                                    `}>
+                                                        <Database size={18} />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="font-bold text-sm text-white font-mono uppercase tracking-tight">
+                                                            {resume.content.personalInfo?.fullName || "Untitled Resume"}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground font-mono">
+                                                            {new Date(resume.created_at).toLocaleDateString()} • {resume.content.experience?.[0]?.jobTitle || "No Title"}
+                                                        </p>
+                                                    </div>
+                                                    {selectedResumeId === resume.id && (
+                                                        <CheckCircle2 size={18} className="text-cyan-400" />
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {selectedResumeId && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="mt-6 flex justify-center"
+                                            >
+                                                <button
+                                                    onClick={handleSubmit}
+                                                    disabled={isUploading}
+                                                    className="px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded text-sm font-bold font-mono uppercase tracking-widest transition-all hover:shadow-[0_0_25px_rgba(6,182,212,0.5)] disabled:opacity-50 flex items-center"
+                                                >
+                                                    {isUploading ? "Analyzing..." : "Analyze Saved Resume"}
+                                                </button>
+                                            </motion.div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -327,6 +413,7 @@ export default function ScorePage() {
                                         onClick={() => {
                                             setResult(null);
                                             setFile(null);
+                                            setSelectedResumeId("");
                                         }}
                                         className="px-6 py-3 border border-border text-foreground hover:bg-secondary font-mono text-sm font-bold uppercase tracking-widest transition-colors rounded-sm w-full sm:w-auto"
                                     >
@@ -344,6 +431,6 @@ export default function ScorePage() {
                     )}
                 </AnimatePresence>
             </main>
-        </div>
+        </div >
     );
 }
