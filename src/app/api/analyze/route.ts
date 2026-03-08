@@ -4,6 +4,13 @@ import { supabase } from '@/lib/supabase';
 // Standard Vercel optimization
 export const dynamic = 'force-dynamic';
 
+// Fix for pdf-parse/pdfjs-dist in Node environment (Vercel)
+if (typeof global.DOMMatrix === 'undefined') {
+    (global as any).DOMMatrix = class DOMMatrix {
+        constructor() { }
+    };
+}
+
 export async function GET() {
     return NextResponse.json({
         status: "Online",
@@ -41,11 +48,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'AI key not configured' }, { status: 500 });
         }
 
-        // Dynamic imports to prevent top-level load crashes
-        const { PDFParse } = await import('pdf-parse');
-        const { createOpenAI } = await import('@ai-sdk/openai');
-        const { generateText } = await import('ai');
-
         const formData = await req.formData();
         const resumeId = formData.get('resumeId') as string | null;
         const file = formData.get('resume') as File | null;
@@ -63,18 +65,24 @@ export async function POST(req: NextRequest) {
         } else if (file) {
             const arrayBuffer = await file.arrayBuffer();
             try {
+                // Import PDFParse ONLY for files to avoid global dependency crashes
+                const { PDFParse } = await import('pdf-parse');
                 const pdfParser = new PDFParse({ data: new Uint8Array(arrayBuffer) });
                 const res = await pdfParser.getText();
                 text = res.text;
             } catch (err: any) {
                 console.error('SERVER: PDF Extraction Failed:', err);
-                return NextResponse.json({ error: 'PDF processing failed: ' + err.message }, { status: 500 });
+                return NextResponse.json({ error: 'PDF processing issue (deployment/Node context): ' + err.message }, { status: 500 });
             }
         }
 
         if (!text || text.trim().length < 50) {
             return NextResponse.json({ error: 'Insufficient text extracted for analysis.' }, { status: 400 });
         }
+
+        // Import AI modules ONLY when ready to generate
+        const { createOpenAI } = await import('@ai-sdk/openai');
+        const { generateText } = await import('ai');
 
         const isOpenRouter = apiKey.startsWith('sk-or-');
         const ai = createOpenAI({
@@ -95,8 +103,8 @@ export async function POST(req: NextRequest) {
             3. impactAndMetrics: Presence of quantifiable achievements (%, $, numbers) and action verbs.
             
             LOGIC RULES:
-            - If no quantifiable metrics are found, max impact score is 40.
-            - If structure is poor/unorganized, max atsScore is 50.
+            - If no quantifiable metrics (%, $, numbers) are found, max impact score is 45.
+            - If structure is poor or unorganized, max atsScore is 55.
             - Provide 3-5 specific, actionable feedback points.
             
             OUTPUT: Return ONLY a valid JSON object:
