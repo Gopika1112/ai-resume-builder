@@ -91,7 +91,7 @@ export default function ScorePage() {
         }
 
         try {
-            const response = await fetch("/api/analyze", {
+            const response = await fetch("/api/tester", {
                 method: "POST",
                 body: formData,
             });
