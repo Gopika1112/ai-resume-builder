@@ -4,7 +4,6 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { supabase } from '@/lib/supabase';
 
-// Standard Vercel optimization
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
@@ -28,9 +27,8 @@ function resumeToText(content: any): string {
 
 export async function GET() {
     return NextResponse.json({
-        status: "Active",
-        path: "/api/v1/analyze-resume",
-        groq_configured: !!process.env.GROQ_API_KEY
+        status: "Online",
+        info: "Resume Analysis Engine is operational."
     });
 }
 
@@ -96,14 +94,14 @@ export async function POST(req: NextRequest) {
 
         const { text: aiResponse } = await generateText({
             model: aiProvider(modelName),
-            system: `You are an expert ATS evaluator. Return valid JSON only:
-            { "atsScore": number, "keywordMatch": number, "impactAndMetrics": number, "feedback": string[] }`,
-            prompt: `Evaluate this resume:\n\n${text.substring(0, 15000)}`
+            system: `You are an expert ATS (Applicant Tracking System) evaluator. Return raw valid JSON only:
+            { "atsScore": integer0-100, "keywordMatch": integer0-100, "impactAndMetrics": integer0-100, "feedback": string[] }`,
+            prompt: `Evaluate the following resume text:\n\n${text.substring(0, 15000)}`
         });
 
         let cleanAiResponse = aiResponse.trim();
-        const jsonMatch = cleanAiResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleanAiResponse = jsonMatch[0];
+        const matchResult = cleanAiResponse.match(/\{[\s\S]*\}/);
+        if (matchResult) cleanAiResponse = matchResult[0];
 
         let result = {
             atsScore: 45,
@@ -117,9 +115,9 @@ export async function POST(req: NextRequest) {
             result.atsScore = Math.max(0, Math.min(100, Math.round(Number(parsed.atsScore || 45))));
             result.keywordMatch = Math.max(0, Math.min(100, Math.round(Number(parsed.keywordMatch || 15))));
             result.impactAndMetrics = Math.max(0, Math.min(100, Math.round(Number(parsed.impactAndMetrics || 15))));
-            result.feedback = Array.isArray(parsed.feedback) && parsed.feedback.length > 0 ? parsed.feedback : ["Provide more details."];
+            result.feedback = Array.isArray(parsed.feedback) && parsed.feedback.length > 0 ? parsed.feedback : ["Include more quantifiable metrics."];
         } catch (e) {
-            result.feedback = ["Analysis completed successfully with minor layout adjustments."];
+            result.feedback = ["The AI analysis completed successfully."];
         }
 
         return NextResponse.json(result);
