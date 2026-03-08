@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
+import path from 'path';
 
 export async function POST(req: Request) {
     try {
@@ -14,11 +15,13 @@ export async function POST(req: Request) {
 
         const arrayBuffer = await file.arrayBuffer();
 
-        // Use standard fonts for better extraction of non-embedded fonts in browser-printed PDFs
-        // Path adjusted to work both locally and in Vercel environment
+        // Use standard fonts and cmaps for better extraction of non-embedded fonts in browser-printed PDFs
+        const pdfjsDistPath = path.dirname(require.resolve('pdfjs-dist/package.json'));
         const pdfParser = new PDFParse({
             data: new Uint8Array(arrayBuffer),
-            standardFontDataUrl: './node_modules/pdfjs-dist/standard_fonts/'
+            standardFontDataUrl: path.join(pdfjsDistPath, 'standard_fonts', path.sep),
+            cMapUrl: path.join(pdfjsDistPath, 'cmaps', path.sep),
+            cMapPacked: true
         });
         let textResult;
         try {
@@ -29,6 +32,10 @@ export async function POST(req: Request) {
         }
 
         const text = textResult.text;
+        console.log('ATS_DEBUG: Extracted text length:', text?.length);
+        if (text && text.length > 50) {
+            console.log('ATS_DEBUG: First 100 chars:', text.substring(0, 100));
+        }
 
         if (!text || text.trim().length < 50) {
             return NextResponse.json({
@@ -117,6 +124,8 @@ IMPORTANT: YOU MUST RETURN ONLY RAW VALID JSON. Return a JSON object matching ex
             // Result already has defaults, so we just return the default 40
             result.feedback = ["Warning: System processing error. Please ensure your PDF contains selectable text."];
         }
+
+        console.log('ATS_DEBUG: Finalized Result:', JSON.stringify(result, null, 2));
 
         return NextResponse.json(result);
 
