@@ -15,9 +15,10 @@ export async function POST(req: Request) {
         const arrayBuffer = await file.arrayBuffer();
 
         // Use standard fonts for better extraction of non-embedded fonts in browser-printed PDFs
+        // Path adjusted to work both locally and in Vercel environment
         const pdfParser = new PDFParse({
             data: new Uint8Array(arrayBuffer),
-            standardFontDataUrl: 'c:/Users/gopik/OneDrive/Desktop/antigravity/node_modules/pdfjs-dist/standard_fonts/'
+            standardFontDataUrl: './node_modules/pdfjs-dist/standard_fonts/'
         });
         let textResult;
         try {
@@ -37,8 +38,7 @@ export async function POST(req: Request) {
                 feedback: [
                     "Error: Could not extract enough readable text from this PDF.",
                     "This usually happens with browser-printed PDFs using custom fonts.",
-                    "Please try saving the resume as a standard text-based PDF or using a different PDF printer.",
-                    "If you built this using our builder, the internal ATS score is more accurate."
+                    "Please try saving the resume as a standard text-based PDF or using a different PDF printer."
                 ]
             });
         }
@@ -66,53 +66,56 @@ Scoring Rubric (0-100 Base):
 4. Impact & Metrics (+0 to +20): Are there quantifiable numbers, percentages, or concrete results?
 5. Keyword Optimization (+0 to +10): Does it list relevant technical or professional skills clearly?
 
-IMPORTANT: YOU MUST RETURN ONLY RAW VALID JSON. DO NOT WRAP WITH MARKDOWN BLOCKS LIKE \`\`\`json. Return a JSON object matching exactly this schema:
+IMPORTANT: YOU MUST RETURN ONLY RAW VALID JSON. Return a JSON object matching exactly this schema:
 {
-  "atsScore": number, // Calculate based on the rubric. Max 100.
-  "keywordMatch": number, // 0-100 percentage.
-  "impactAndMetrics": number, // 0-100 percentage.
-  "feedback": string[] // 3-4 actionable points.
+  "atsScore": number, 
+  "keywordMatch": number, 
+  "impactAndMetrics": number, 
+  "feedback": string[] 
 }`,
             prompt: `Raw Resume Text:\n${text.substring(0, 15000)}`
         });
 
         let cleanJson = aiResponse.trim();
-        let result;
+        let result = {
+            atsScore: 40,
+            keywordMatch: 0,
+            impactAndMetrics: 0,
+            feedback: [] as string[]
+        };
+
         try {
             const match = cleanJson.match(/\{[\s\S]*\}/);
             if (!match) throw new Error("No JSON object found in LLM response");
 
-            result = JSON.parse(match[0]);
+            const parsed = JSON.parse(match[0]);
 
-            // Ensure scores are actual numbers and fallback safely
-            // AI sometimes uses "ats_score" or other variations. We'll be flexible.
-            const rawScore = Number(result.atsScore ?? result.ats_score ?? result.score);
-            const rawKeywords = Number(result.keywordMatch ?? result.keywords ?? result.keyword_match);
-            const rawImpact = Number(result.impactAndMetrics ?? result.impact ?? result.impact_and_metrics);
+            // Robust key mapping to catch variations from the AI
+            const mappedScore = Number(parsed.atsScore ?? parsed.ats_score ?? parsed.score ?? 40);
+            const mappedKeywords = Number(parsed.keywordMatch ?? parsed.keywords ?? parsed.keyword_match ?? 0);
+            const mappedImpact = Number(parsed.impactAndMetrics ?? parsed.impact ?? parsed.impact_and_metrics ?? 0);
 
-            // Ensure feedback is never empty
-            if (!Array.isArray(result.feedback) || result.feedback.length === 0) {
-                result.feedback = [
+            result.atsScore = isNaN(mappedScore) ? 40 : Math.max(40, Math.min(100, mappedScore));
+            result.keywordMatch = isNaN(mappedKeywords) ? 0 : Math.max(0, Math.min(100, mappedKeywords));
+            result.impactAndMetrics = isNaN(mappedImpact) ? 0 : Math.max(0, Math.min(100, mappedImpact));
+
+            result.feedback = Array.isArray(parsed.feedback) && parsed.feedback.length > 0
+                ? parsed.feedback
+                : [
                     "Ensure your PDF text is fully selectable and not rasterized as an image.",
                     "Include more quantifiable metrics to improve your score.",
                     "Action verbs can greatly strengthen your experience bullet points."
                 ];
-            }
 
-            // Apply safety fallback if score is zero or invalid
-            if (isNaN(rawScore) || rawScore < 10) {
-                result.atsScore = 40;
+            // Add warning if the base score had to be forced
+            if (mappedScore < 10) {
                 result.feedback.unshift("Warning: We had trouble parsing the formatting of your PDF, which affected your score. Building your resume directly in our tool yields the most accurate internal score.");
-            } else {
-                result.atsScore = Math.min(100, rawScore);
             }
-
-            result.keywordMatch = isNaN(rawKeywords) ? 0 : Math.max(0, Math.min(100, rawKeywords));
-            result.impactAndMetrics = isNaN(rawImpact) ? 0 : Math.max(0, Math.min(100, rawImpact));
 
         } catch (e: any) {
             console.error('ATS_API: Failed to parse AI output:', aiResponse);
-            throw new Error('AI returned invalid JSON formatting: ' + e.message);
+            // Result already has defaults, so we just return the default 40
+            result.feedback = ["Warning: System processing error. Please ensure your PDF contains selectable text."];
         }
 
         return NextResponse.json(result);
