@@ -11,73 +11,49 @@ export function PrintButton() {
     const handleDownload = async () => {
         const element = document.getElementById("resume-print-container");
         if (!element) {
-            alert("Resume container not found. Contact support.");
+            alert("Resume container not found. Opening print dialog.");
+            window.print();
             return;
         }
 
         setIsGenerating(true);
         try {
-            console.log("Saving PDF... container check:", element.offsetWidth, "x", element.offsetHeight);
+            console.log("Generating high-fidelity PDF...");
 
-            // Re-render element to ensure it's not hidden
-            element.style.display = 'block';
-
-            const canvas = await html2canvas(element, {
-                scale: 1.5,
-                useCORS: true,
-                logging: true,
-                backgroundColor: "#ffffff",
-                scrollX: -window.scrollX,
-                scrollY: -window.scrollY,
-                windowWidth: element.scrollWidth,
-                windowHeight: element.scrollHeight,
-            }).catch(err => {
-                console.error("Visual capture error:", err);
-                throw new Error(`Visual capture failed: ${err.message || 'Check browser permissions'}`);
-            });
-
-            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+            // 1. Initialize jsPDF
+            // Using points (pt) for better HTML mapping
             const pdf = new jsPDF({
                 orientation: "portrait",
-                unit: "mm",
+                unit: "pt",
                 format: "a4",
             });
 
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            const pdfWidth = 595.28; // A4 width in pt
 
-            // 1. Visual Layer
-            pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
-
-            // 2. Text Layer (Hidden but copyable)
-            try {
-                const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
-                let node;
-                pdf.setFontSize(1);
-                const containerRect = element.getBoundingClientRect();
-
-                while (node = walk.nextNode()) {
-                    const text = node.textContent?.trim();
-                    if (text && node.parentElement) {
-                        const rect = node.parentElement.getBoundingClientRect();
-
-                        // Scale factors
-                        const x = ((rect.left - containerRect.left) / containerRect.width) * pdfWidth;
-                        const y = ((rect.top - containerRect.top) / containerRect.height) * pdfHeight;
-
-                        if (!isNaN(x) && !isNaN(y)) {
-                            pdf.text(text, x, y, { renderingMode: "invisible" });
-                        }
-                    }
+            // 2. Use the NATIVE .html() method for real text selectability
+            await pdf.html(element, {
+                callback: function (doc) {
+                    doc.save("AutoResume.pdf");
+                    console.log("PDF Saved.");
+                },
+                x: 0,
+                y: 0,
+                width: pdfWidth,
+                windowWidth: 800, // Match the typical resume container width
+                autoPaging: 'text',
+                html2canvas: {
+                    scale: 0.75, // Scale down to fit A4
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: "#ffffff",
                 }
-            } catch (layerErr) {
-                console.warn("Text layer skipped:", layerErr);
-            }
+            });
 
-            pdf.save("AutoResume.pdf");
         } catch (error) {
-            console.error("SAVE ERROR:", error);
-            alert(`Save Failed: ${error instanceof Error ? error.message : "Internal Engine Error"}`);
+            console.error("PDF GENERATION ERROR:", error);
+            if (confirm("Advanced 'Save' failed due to browser limitations. Use standard Print instead?")) {
+                window.print();
+            }
         } finally {
             setIsGenerating(false);
         }
@@ -96,7 +72,7 @@ export function PrintButton() {
                 <Download size={18} className="relative z-10" />
             )}
             <span className="hidden sm:inline relative z-10">
-                {isGenerating ? "Saving..." : "Save PDF"}
+                {isGenerating ? "Processing..." : "Save PDF"}
             </span>
         </button>
     );
