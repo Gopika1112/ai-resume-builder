@@ -5,6 +5,7 @@ import { ArrowLeft, Download, Mail, Phone, MapPin, Linkedin, Github, Globe, Chec
 
 import { PrintButton } from "@/components/print-button";
 import { EditableResume } from "@/components/editable-resume";
+import { Navbar } from "@/components/navbar";
 
 export const revalidate = 0;
 
@@ -50,17 +51,19 @@ export default async function ResumePage({ params }: ResumePageProps) {
     return (
         <div className="min-h-screen bg-background text-foreground py-10 px-4 sm:px-6 lg:px-8 font-sans">
 
+            <Navbar />
+
             {/* Dashboard Top Bar (Non-printable) */}
-            <div className="max-w-6xl mx-auto mb-10 print:hidden space-y-6">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="max-w-6xl mx-auto mb-10 print:hidden space-y-6 px-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-b border-border/50">
                     <Link
-                        href="/build"
-                        className="inline-flex items-center space-x-2 text-sm font-mono text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest"
+                        href="/dashboard"
+                        className="inline-flex items-center space-x-2 text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors uppercase tracking-[0.2em]"
                     >
-                        <ArrowLeft size={16} />
-                        <span>Abort / Rebuild</span>
+                        <ArrowLeft size={14} />
+                        <span>Return to Dashboard</span>
                     </Link>
-                    <PrintButton />
+                    <PrintButton data={data.content} />
                 </div>
 
                 {/* ATS Score Panel */}

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Terminal, Cpu, Target, FileCode2, X } from "lucide-react";
+import { ArrowRight, Terminal, Cpu, Target, FileCode2, X, ChevronRight } from "lucide-react";
+import { Navbar } from "@/components/navbar";
 
 export default function Home() {
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
@@ -82,26 +83,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center overflow-hidden font-sans">
 
-      {/* Top Navigation Bar with Authentication Links */}
-      <nav className="w-full max-w-7xl px-6 md:px-12 py-6 flex justify-between items-center relative z-20">
-        <div className="text-xl font-black uppercase text-white tracking-widest flex items-center space-x-2">
-          <Terminal size={20} className="text-primary" />
-          <span>AutoResume</span>
-        </div>
-        <div className="flex space-x-6 items-center font-mono text-sm uppercase tracking-wider">
-          <div className="hidden sm:flex space-x-6">
-            <Link href="/score" className="text-muted-foreground hover:text-white transition-colors">
-              Check ATS Score
-            </Link>
-            <Link href="/login" className="text-muted-foreground hover:text-white transition-colors">
-              Log In
-            </Link>
-          </div>
-          <Link href="/signup" className="border border-primary/50 text-primary hover:bg-primary/10 px-4 py-2 rounded-sm transition-all shadow-[0_0_10px_rgba(34,197,94,0.1)]">
-            Sign Up
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Background Matrix/Grid Effect */}
       <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
@@ -164,6 +146,7 @@ export default function Home() {
             Explore Features
           </a>
         </motion.div>
+
 
         {/* Interactive Feature Highlights Grid */}
         <div id="features-section" className="mt-32 w-full pt-10">

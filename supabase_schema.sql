@@ -15,3 +15,9 @@ CREATE POLICY "Allow public inserts" ON public.resumes FOR INSERT WITH CHECK (tr
 
 -- Allow anonymous users to read resumes
 CREATE POLICY "Allow public reads" ON public.resumes FOR SELECT USING (true);
+
+-- Allow anonymous users to delete resumes
+CREATE POLICY "Allow public deletes" ON public.resumes FOR DELETE USING (true);
+
+-- Allow anonymous users to update resumes (for the AI enhancer/editor)
+CREATE POLICY "Allow public updates" ON public.resumes FOR UPDATE USING (true);

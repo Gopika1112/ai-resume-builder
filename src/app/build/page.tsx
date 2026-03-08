@@ -5,12 +5,14 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ArrowRight, Loader2, User, Briefcase, GraduationCap, Code, LayoutTemplate, Terminal, Check } from "lucide-react";
+import { Plus, Trash2, ArrowRight, Loader2, User, Briefcase, GraduationCap, Code, LayoutTemplate, Terminal, Check, Sparkles, Database, Clock, ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useEffect } from "react";
 
 import { ResumePreview } from "@/components/resume-preview";
+import { Navbar } from "@/components/navbar";
 
 const previewData = {
     personalInfo: {
@@ -87,7 +89,7 @@ const formSchema = z.object({
         })
     ),
     skills: z.string().min(2, "Enter at least one skill"),
-    template: z.enum(["modern", "minimalist", "terminal", "creative", "executive"]),
+    template: z.enum(["modern", "minimalist", "terminal", "creative", "executive", "chrono", "compact", "modernist", "legacy"]),
 });
 
 export type ResumeFormValues = z.infer<typeof formSchema>;
@@ -96,6 +98,37 @@ export default function BuildResumePage() {
     const router = useRouter();
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [recentResumes, setRecentResumes] = useState<any[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            const { data, error } = await supabase
+                .from('resumes')
+                .select('id, content, created_at')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (!error && data) {
+                setRecentResumes(data);
+            }
+        };
+        fetchHistory();
+    }, []);
+
+    const loadResume = (resume: any) => {
+        const content = resume.content;
+        // Map saved content back to form values
+        reset({
+            personalInfo: content.personalInfo || { fullName: "", email: "", phone: "", location: "", linkedin: "", github: "", portfolio: "" },
+            summary: content.summary || "",
+            experience: content.experience || [{ jobTitle: "", company: "", startDate: "", endDate: "", description: "" }],
+            education: content.education || [{ degree: "", institution: "", completionYear: "" }],
+            skills: Array.isArray(content.skills) ? content.skills.join(", ") : content.skills || "",
+            template: content.template || "modern",
+        });
+        setShowHistory(false);
+    };
 
     const {
         register,
@@ -103,6 +136,7 @@ export default function BuildResumePage() {
         handleSubmit,
         watch,
         setValue,
+        reset,
         formState: { errors },
     } = useForm<ResumeFormValues>({
         resolver: zodResolver(formSchema),
@@ -166,18 +200,69 @@ export default function BuildResumePage() {
         <div className="min-h-screen bg-background text-foreground pb-12 px-4 sm:px-6 lg:px-8 font-sans relative">
             <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_14px]"></div>
 
-            {/* Basic Nav */}
-            <nav className="w-full max-w-7xl mx-auto py-6 flex justify-between items-center relative z-20">
-                <Link href="/" className="text-xl font-black uppercase text-white tracking-widest flex items-center space-x-2">
-                    <Terminal size={20} className="text-primary" />
-                    <span>AutoResume</span>
+            <Navbar />
+
+            {/* Sub-Nav for Builder Tools */}
+            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end items-center relative z-20 gap-4 mb-4">
+                {recentResumes.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="flex items-center space-x-2 text-[10px] font-mono text-cyan-400 hover:text-white transition-colors px-3 py-1.5 border border-cyan-500/20 bg-cyan-500/5 rounded-sm uppercase tracking-widest"
+                    >
+                        <Clock size={12} />
+                        <span>Load Recent</span>
+                    </button>
+                )}
+                <Link href="/examples" className="text-[10px] font-mono text-muted-foreground hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2" target="_blank">
+                    <LayoutTemplate size={12} />
+                    View Examples
                 </Link>
-                <div className="flex space-x-4 items-center">
-                    <Link href="/examples" className="text-xs font-mono text-muted-foreground hover:text-white uppercase tracking-widest transition-colors" target="_blank">
-                        View Examples
-                    </Link>
-                </div>
-            </nav>
+            </div>
+
+            <AnimatePresence>
+                {showHistory && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="max-w-4xl mx-auto mb-8 bg-cyan-950/20 border border-cyan-500/20 rounded-sm overflow-hidden relative z-20"
+                    >
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xs font-mono text-cyan-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Database size={14} /> Local System History
+                                </h3>
+                                <button onClick={() => setShowHistory(false)} className="text-muted-foreground hover:text-white transition-colors">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {recentResumes.map((resume) => (
+                                    <button
+                                        key={resume.id}
+                                        onClick={() => loadResume(resume)}
+                                        className="flex flex-col p-4 bg-background/50 border border-border hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all text-left group"
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-mono text-muted-foreground group-hover:text-cyan-400 transition-colors">
+                                                {new Date(resume.created_at).toLocaleDateString()}
+                                            </span>
+                                            <ChevronRight size={12} className="text-muted-foreground group-hover:text-cyan-400" />
+                                        </div>
+                                        <p className="text-sm font-bold text-white uppercase truncate mb-1">
+                                            {resume.content?.personalInfo?.fullName || "Untitled"}
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                                            {resume.content?.template || "modern"} Chassis
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <div className="max-w-4xl mx-auto relative z-10">
                 <div className="text-center mb-12 mt-4">
@@ -596,6 +681,102 @@ export default function BuildResumePage() {
                                         <p className="text-sm text-muted-foreground font-mono leading-relaxed mt-auto">Vibrant accents and modern spacing. Ideal for design, media, and marketing roles.</p>
                                     </div>
                                     {selectedTemplate === 'creative' && (
+                                        <div className="absolute top-4 right-4 bg-primary text-primary-foreground p-1.5 rounded-full z-20">
+                                            <Check size={16} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Chrono Template */}
+                                <div
+                                    className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 flex flex-col group ${selectedTemplate === 'chrono' ? 'ring-4 ring-primary shadow-[0_0_30px_rgba(34,197,94,0.3)] scale-[1.02] z-10' : 'ring-1 ring-border hover:ring-primary/50 bg-card/50 hover:bg-card hover:-translate-y-1'}`}
+                                    onClick={() => setValue("template", "chrono")}
+                                >
+                                    <div className="h-64 sm:h-80 w-full bg-slate-900 overflow-hidden flex items-start justify-center pt-8 border-b border-border/50 relative">
+                                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                                        <div className="w-[210mm] origin-top transition-transform duration-500 group-hover:scale-[0.34]" style={{ transform: 'scale(0.32)' }}>
+                                            <div className="bg-white shadow-2xl rounded-sm">
+                                                <ResumePreview data={previewData} template="chrono" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 bg-background flex-1 flex flex-col">
+                                        <h3 className={`font-black uppercase text-xl tracking-tight mb-2 ${selectedTemplate === 'chrono' ? 'text-primary' : 'text-white'}`}>Chrono</h3>
+                                        <p className="text-sm text-muted-foreground font-mono leading-relaxed mt-auto">Timeline-focused layout with vertical markers. Excellent for showing progressive career growth.</p>
+                                    </div>
+                                    {selectedTemplate === 'chrono' && (
+                                        <div className="absolute top-4 right-4 bg-primary text-primary-foreground p-1.5 rounded-full z-20">
+                                            <Check size={16} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Compact Template */}
+                                <div
+                                    className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 flex flex-col group ${selectedTemplate === 'compact' ? 'ring-4 ring-primary shadow-[0_0_30px_rgba(34,197,94,0.3)] scale-[1.02] z-10' : 'ring-1 ring-border hover:ring-primary/50 bg-card/50 hover:bg-card hover:-translate-y-1'}`}
+                                    onClick={() => setValue("template", "compact")}
+                                >
+                                    <div className="h-64 sm:h-80 w-full bg-slate-900 overflow-hidden flex items-start justify-center pt-8 border-b border-border/50 relative">
+                                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                                        <div className="w-[210mm] origin-top transition-transform duration-500 group-hover:scale-[0.34]" style={{ transform: 'scale(0.32)' }}>
+                                            <div className="bg-white shadow-2xl rounded-sm">
+                                                <ResumePreview data={previewData} template="compact" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 bg-background flex-1 flex flex-col">
+                                        <h3 className={`font-black uppercase text-xl tracking-tight mb-2 ${selectedTemplate === 'compact' ? 'text-primary' : 'text-white'}`}>Compact</h3>
+                                        <p className="text-sm text-muted-foreground font-mono leading-relaxed mt-auto">Data-dense, grid-based layout. Optimized for fitment of extensive experience on a single page.</p>
+                                    </div>
+                                    {selectedTemplate === 'compact' && (
+                                        <div className="absolute top-4 right-4 bg-primary text-primary-foreground p-1.5 rounded-full z-20">
+                                            <Check size={16} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Modernist Template */}
+                                <div
+                                    className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 flex flex-col group ${selectedTemplate === 'modernist' ? 'ring-4 ring-primary shadow-[0_0_30px_rgba(34,197,94,0.3)] scale-[1.02] z-10' : 'ring-1 ring-border hover:ring-primary/50 bg-card/50 hover:bg-card hover:-translate-y-1'}`}
+                                    onClick={() => setValue("template", "modernist")}
+                                >
+                                    <div className="h-64 sm:h-80 w-full bg-slate-900 overflow-hidden flex items-start justify-center pt-8 border-b border-border/50 relative">
+                                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                                        <div className="w-[210mm] origin-top transition-transform duration-500 group-hover:scale-[0.34]" style={{ transform: 'scale(0.32)' }}>
+                                            <div className="bg-[#fafafa] shadow-2xl rounded-sm">
+                                                <ResumePreview data={previewData} template="modernist" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 bg-background flex-1 flex flex-col">
+                                        <h3 className={`font-black uppercase text-xl tracking-tight mb-2 ${selectedTemplate === 'modernist' ? 'text-primary' : 'text-white'}`}>Modernist</h3>
+                                        <p className="text-sm text-muted-foreground font-mono leading-relaxed mt-auto">Bold split-layout with an accent sidebar. Perfect for high-end professional identities.</p>
+                                    </div>
+                                    {selectedTemplate === 'modernist' && (
+                                        <div className="absolute top-4 right-4 bg-primary text-primary-foreground p-1.5 rounded-full z-20">
+                                            <Check size={16} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Legacy Template */}
+                                <div
+                                    className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 flex flex-col group ${selectedTemplate === 'legacy' ? 'ring-4 ring-primary shadow-[0_0_30px_rgba(34,197,94,0.3)] scale-[1.02] z-10' : 'ring-1 ring-border hover:ring-primary/50 bg-card/50 hover:bg-card hover:-translate-y-1'}`}
+                                    onClick={() => setValue("template", "legacy")}
+                                >
+                                    <div className="h-64 sm:h-80 w-full bg-slate-900 overflow-hidden flex items-start justify-center pt-8 border-b border-border/50 relative">
+                                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none"></div>
+                                        <div className="w-[210mm] origin-top transition-transform duration-500 group-hover:scale-[0.34]" style={{ transform: 'scale(0.32)' }}>
+                                            <div className="bg-[#fffdfa] shadow-2xl rounded-sm">
+                                                <ResumePreview data={previewData} template="legacy" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 bg-background flex-1 flex flex-col">
+                                        <h3 className={`font-black uppercase text-xl tracking-tight mb-2 ${selectedTemplate === 'legacy' ? 'text-primary' : 'text-white'}`}>Legacy</h3>
+                                        <p className="text-sm text-muted-foreground font-mono leading-relaxed mt-auto">Traditional high-formality template with centered headers and elegant serif fonts.</p>
+                                    </div>
+                                    {selectedTemplate === 'legacy' && (
                                         <div className="absolute top-4 right-4 bg-primary text-primary-foreground p-1.5 rounded-full z-20">
                                             <Check size={16} strokeWidth={3} />
                                         </div>
