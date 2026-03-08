@@ -37,8 +37,18 @@ export async function POST(req: Request) {
         try {
             textResult = await pdfParser.getText();
         } catch (err: any) {
-            console.error('PDF Parse Error:', err);
-            return NextResponse.json({ error: 'Failed to extract text from PDF: ' + err.message }, { status: 400 });
+            console.error('PDF Parse Error (Caught):', err);
+            // Fallback to baseline 40 instead of erroring out
+            return NextResponse.json({
+                atsScore: 40,
+                keywordMatch: 0,
+                impactAndMetrics: 0,
+                feedback: [
+                    "Warning: We had trouble parsing the formatting of your PDF. Building your resume directly in our tool yields the most accurate internal score.",
+                    "Please ensure your PDF is not an image and contains selectable text.",
+                    "Extraction fidelity issue detected: " + err.message
+                ]
+            });
         }
 
         const text = textResult.text;
