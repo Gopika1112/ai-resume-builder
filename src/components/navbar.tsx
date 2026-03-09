@@ -12,6 +12,9 @@ export function Navbar() {
             </Link>
             <div className="flex space-x-6 items-center font-mono text-sm uppercase tracking-wider">
                 <div className="hidden sm:flex space-x-6">
+                    <Link href="/" className="text-muted-foreground hover:text-white transition-colors">
+                        Home
+                    </Link>
                     <Link href="/dashboard" className="text-muted-foreground hover:text-white transition-colors">
                         Dashboard
                     </Link>
