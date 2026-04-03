@@ -14,6 +14,18 @@ import { useEffect } from "react";
 import { ResumePreview } from "@/components/resume-preview";
 import { Navbar } from "@/components/navbar";
 
+const templates = [
+    { id: "modern", name: "Modern", description: "Clean, professional look with a focused layout." },
+    { id: "terminal", name: "Terminal", description: "Hacker-style monospace with green accents." },
+    { id: "minimalist", name: "Minimalist", description: "Elegant, simple, and high whitespace efficiency." },
+    { id: "executive", name: "Executive", description: "Traditional serif style for high-level leadership positions." },
+    { id: "creative", name: "Creative", description: "Playful colors and unique layout for artists and designers." },
+    { id: "chrono", name: "Chronological", description: "Timeline focused layout highlighting career progression." },
+    { id: "compact", name: "Compact", description: "Dense information density for 10+ years experience." },
+    { id: "modernist", name: "Modernist", description: "Asymmetric split layout for cutting-edge tech roles." },
+    { id: "legacy", name: "Legacy", description: "Safe, traditional layout for conservative industries." }
+];
+
 const previewData = {
     personalInfo: {
         fullName: "Alexander Rossi",
@@ -166,6 +178,7 @@ export default function BuildResumePage() {
     });
 
     const selectedTemplate = watch("template");
+    const selectedTmplObj = (templates || []).find(t => t.id === selectedTemplate) || (templates ? templates[0] : { id: "modern", name: "Modern", description: "" });
 
     const {
         fields: expFields,
