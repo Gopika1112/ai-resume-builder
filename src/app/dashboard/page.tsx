@@ -172,7 +172,9 @@ export default function Dashboard() {
                                     <div className="flex items-center gap-1.5 bg-background/80 px-2 py-1 border border-border rounded-sm">
                                         <Clock size={12} className="text-muted-foreground" />
                                         <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                                            {new Date(resume.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            {resume.created_at 
+                                                ? new Date(resume.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                                                : "Date Unknown"}
                                         </span>
                                     </div>
                                 </div>

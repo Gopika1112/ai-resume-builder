@@ -7,7 +7,15 @@ interface ResumePreviewProps {
 }
 
 export function ResumePreview({ data, template: tmpl }: ResumePreviewProps) {
-    const { personalInfo, summary, experience, education, skills } = data;
+    const {
+        personalInfo = { fullName: "", email: "", phone: "", location: "" },
+        summary = "",
+        experience = [],
+        education = [],
+        skills: rawSkills = []
+    } = data || {};
+
+    const skills = Array.isArray(rawSkills) ? rawSkills : (typeof rawSkills === 'string' ? rawSkills.split(',').map(s => s.trim()) : []);
 
     return (
         <div

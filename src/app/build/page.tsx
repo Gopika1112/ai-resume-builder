@@ -132,8 +132,8 @@ export default function BuildResumePage() {
     }
 
     const loadResume = (resume: any) => {
-        const content = resume.content;
-        // Map saved content back to form values
+        const content = resume?.content || {};
+        // Map saved content back to form values with robust defaults
         reset({
             personalInfo: content.personalInfo || { fullName: "", email: "", phone: "", location: "", linkedin: "", github: "", portfolio: "" },
             summary: content.summary || "",
@@ -264,12 +264,12 @@ export default function BuildResumePage() {
                                     >
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-[10px] font-mono text-muted-foreground group-hover:text-cyan-400 transition-colors">
-                                                {new Date(resume.created_at).toLocaleDateString()}
+                                                {resume.created_at ? new Date(resume.created_at).toLocaleDateString() : "Unknown Date"}
                                             </span>
                                             <ChevronRight size={12} className="text-muted-foreground group-hover:text-cyan-400" />
                                         </div>
                                         <p className="text-sm font-bold text-white uppercase truncate mb-1">
-                                            {resume.content?.personalInfo?.fullName || "Untitled"}
+                                            {resume.content?.personalInfo?.fullName || "Untitled Resume"}
                                         </p>
                                         <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
                                             {resume.content?.template || "modern"} Chassis
