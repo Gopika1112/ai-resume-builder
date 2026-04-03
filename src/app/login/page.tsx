@@ -39,7 +39,7 @@ export default function LoginPage() {
         const { error: googleError } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: getURL("/auth/callback"),
+                redirectTo: 'https://ai-resume-builder-hzd3.vercel.app/auth/callback',
             },
         });
 
