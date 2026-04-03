@@ -134,14 +134,7 @@ export default function BuildResumePage() {
         fetchHistory();
     }, []);
 
-    if (!mounted) {
-        return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing Neural Link...</p>
-            </div>
-        );
-    }
+    // Note: Hooks moved above this guard to satisfy React 19 rules
 
     const loadResume = (resume: any) => {
         const content = resume?.content || {};
@@ -225,7 +218,16 @@ export default function BuildResumePage() {
     const inputClasses = "w-full px-4 py-3 rounded-sm border border-border bg-card focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all font-mono text-sm";
     const labelClasses = "block text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2 mt-4";
     const sectionHeaderClasses = "flex items-center space-x-3 mb-6 border-b border-border pb-4";
-    const sectionIconClasses = "p-2 bg-primary/10 rounded-sm text-primary border border-primary/20 shadow-[0_0_10px_rgba(34,197,94,0.1)]";
+    const sectionIconClasses = "p-2 bg-primary/10 rounded-sm text-primary border border-primary/20 shadow-[0_0_10px_rgba(34,197,94,0.15)]";
+
+    if (!mounted) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing Neural Link...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-background text-foreground pb-12 px-4 sm:px-6 lg:px-8 font-sans relative">
