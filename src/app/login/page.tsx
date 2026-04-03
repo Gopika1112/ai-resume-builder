@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Loader2, Terminal, UserSquare2 } from "lucide-react";
+import { getURL } from "@/lib/utils";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -38,7 +39,7 @@ export default function LoginPage() {
         const { error: googleError } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `http://127.0.0.1:3005/auth/callback`,
+                redirectTo: getURL("/auth/callback"),
             },
         });
 

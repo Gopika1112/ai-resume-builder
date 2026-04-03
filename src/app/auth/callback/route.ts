@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getURL } from "@/lib/utils";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -13,16 +14,7 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const forwardedHost = request.headers.get("x-forwarded-host"); // Primary domain
-      const isLocalEnv = process.env.NODE_ENV === "development";
-      if (isLocalEnv) {
-        // FORCE 127.0.0.1 to stop the 431 localhost cookie error
-        return NextResponse.redirect(`http://127.0.0.1:3005${next}`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
-      } else {
-        return NextResponse.redirect(`${origin}${next}`);
-      }
+      return NextResponse.redirect(getURL(next));
     } else {
       console.error("Auth Callback Error:", error.message);
     }
