@@ -100,8 +100,10 @@ export default function BuildResumePage() {
     const [error, setError] = useState<string | null>(null);
     const [recentResumes, setRecentResumes] = useState<any[]>([]);
     const [showHistory, setShowHistory] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         const fetchHistory = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -119,6 +121,15 @@ export default function BuildResumePage() {
         };
         fetchHistory();
     }, []);
+
+    if (!mounted) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing Neural Link...</p>
+            </div>
+        );
+    }
 
     const loadResume = (resume: any) => {
         const content = resume.content;

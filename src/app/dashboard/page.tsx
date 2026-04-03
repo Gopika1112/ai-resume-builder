@@ -23,12 +23,14 @@ export default function Dashboard() {
     const [resumes, setResumes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         const checkAuth = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                router.push("/login"); // Redirect if not logged in
+                router.push("/login?error=unauthorized");
                 return;
             }
             fetchResumes(user.id);
@@ -39,7 +41,6 @@ export default function Dashboard() {
     async function fetchResumes(userId: string) {
         try {
             setLoading(true);
-            // We'll fetch all resumes allowed by RLS (auth.uid() = user_id OR user_id IS NULL)
             const { data, error } = await supabase
                 .from("resumes")
                 .select("id, content, created_at")
@@ -52,6 +53,15 @@ export default function Dashboard() {
         } finally {
             setLoading(false);
         }
+    }
+
+    if (!mounted) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing Dashboard Vault...</p>
+            </div>
+        );
     }
 
     const handleDelete = async (id: string) => {
